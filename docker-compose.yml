@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: screenhive_db
+    environment:
+      POSTGRES_USER: screenhive
+      POSTGRES_PASSWORD: screenhive_password
+      POSTGRES_DB: screenhive
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
