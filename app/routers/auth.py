@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
+from fastapi.security import OAuth2PasswordRequestForm
 
 from app.db.session import get_session
 from app.schemas.auth import (
@@ -35,14 +36,26 @@ def register(
         )
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+)
 def login(
-    data: LoginRequest,
+    form_data: OAuth2PasswordRequestForm = Depends(),
     session: Session = Depends(get_session),
 ):
     try:
-        token = login_user(session, data.email, data.password)
-        return {"access_token": token, "token_type": "bearer"}
+        token = login_user(
+            session,
+            form_data.username,
+            form_data.password,
+        )
+
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+        }
+
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
