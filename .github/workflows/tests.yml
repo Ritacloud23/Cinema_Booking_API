@@ -43,3 +43,5 @@ jobs:
           DATABASE_URL: postgresql+psycopg://screenhive:screenhive_password@localhost:5432/screenhive
           JWT_SECRET: test-secret
         run: uv run pytest 
+
+        
