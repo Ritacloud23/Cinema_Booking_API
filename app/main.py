@@ -3,6 +3,7 @@ from fastapi import Depends
 
 from app.core.security import get_current_user
 from app.db.models.user import User
+from app.routers.auth import router as auth_router
 
 app = FastAPI(title="ScreenHive API")
 
