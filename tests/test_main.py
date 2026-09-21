@@ -13,3 +13,6 @@ def test_home():
     assert response.json() == {
         "message": "ScreenHive API is running"
     }
+
+def test_database_connection(session):
+    assert session is not None    
