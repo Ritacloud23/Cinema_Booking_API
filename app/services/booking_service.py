@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlmodel import Session
@@ -14,7 +14,8 @@ def create_booking(
     session: Session,
     user_id: int,
     hold_id: int,
-) -> Booking:
+):
+    # Lock the hold so two requests cannot use it at the same time.
     hold = session.exec(
         select(Hold)
         .where(Hold.id == hold_id)
@@ -24,36 +25,51 @@ def create_booking(
     if hold is None:
         raise ValueError("Hold not found")
 
+    # Users can only create bookings from their own holds.
     if hold.user_id != user_id:
-        raise PermissionError("You do not own this hold")
+        raise PermissionError(
+            "You do not own this hold"
+        )
 
+    # The hold must still be active.
     if hold.status != "active":
-        raise ValueError("Hold is no longer active")
+        raise ValueError(
+            "Hold is no longer active"
+        )
 
-    now = datetime.now(timezone.utc)
+    # Check the actual expiry time.
+    now = datetime.utcnow()
 
     if hold.expires_at <= now:
-        hold.status = "expired"
-
         seat = session.exec(
             select(SeatInventory)
             .where(
                 SeatInventory.id == hold.seat_inventory_id
             )
+            .with_for_update()
         ).first()
 
         if seat:
             seat.status = "available"
 
+        hold.status = "expired"
+
+        session.add(hold)
+
+        if seat:
+            session.add(seat)
+
         session.commit()
 
         raise ValueError("Hold has expired")
 
+    # Lock the seat as well.
     seat = session.exec(
         select(SeatInventory)
         .where(
             SeatInventory.id == hold.seat_inventory_id
         )
+        .with_for_update()
     ).first()
 
     if seat is None:
@@ -62,11 +78,10 @@ def create_booking(
     if seat.status != "held":
         raise ValueError("Seat is not held")
 
-    showtime_id = seat.showtime_id
-
+    # Create the booking, but DO NOT book the seat yet.
     booking = Booking(
         user_id=user_id,
-        showtime_id=showtime_id,
+        showtime_id=seat.showtime_id,
         reference=f"SH-{uuid.uuid4().hex[:12].upper()}",
         status="pending",
         total_amount=0.0,
@@ -75,18 +90,13 @@ def create_booking(
     session.add(booking)
     session.flush()
 
+    # Connect the booking to the held seat.
     booking_seat = BookingSeat(
         booking_id=booking.id,
         seat_inventory_id=seat.id,
     )
 
     session.add(booking_seat)
-
-    hold.status = "paid"
-    seat.status = "booked"
-
-    session.add(hold)
-    session.add(seat)
 
     session.commit()
     session.refresh(booking)
