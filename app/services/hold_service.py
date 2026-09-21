@@ -1,5 +1,4 @@
-from datetime import datetime, timedelta, timezone
-
+from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlmodel import Session
 
@@ -24,8 +23,8 @@ def create_hold(
     if seat is None:
         raise ValueError("Seat not found")
 
-    now = datetime.now(timezone.utc)
-
+    now = datetime.utcnow()
+    
     existing_hold = session.exec(
         select(Hold)
         .where(

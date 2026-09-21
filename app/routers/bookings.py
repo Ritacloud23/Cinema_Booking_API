@@ -4,7 +4,10 @@ from sqlmodel import Session
 from app.core.security import get_current_user
 from app.db.models.user import User
 from app.db.session import get_session
-from app.schemas.booking import BookingCreate, BookingResponse
+from app.schemas.booking import (
+    BookingCreate,
+    BookingResponse,
+)
 from app.services.booking_service import create_booking
 
 
@@ -44,11 +47,12 @@ def create(
             "Hold not found",
             "Seat not found",
         }:
-            code = status.HTTP_404_NOT_FOUND
-        else:
-            code = status.HTTP_409_CONFLICT
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=message,
+            )
 
         raise HTTPException(
-            status_code=code,
+            status_code=status.HTTP_409_CONFLICT,
             detail=message,
         )
