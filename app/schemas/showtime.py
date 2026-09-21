@@ -8,6 +8,7 @@ class ShowtimeCreate(BaseModel):
     screen_id: int
     start_time: datetime
     end_time: datetime
+    ticket_price: float
 
 
 class ShowtimeResponse(BaseModel):
@@ -16,3 +17,4 @@ class ShowtimeResponse(BaseModel):
     screen_id: int
     start_time: datetime
     end_time: datetime
+    ticket_price: float

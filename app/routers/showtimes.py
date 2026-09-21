@@ -31,6 +31,7 @@ def create(
             screen_id=data.screen_id,
             start_time=data.start_time,
             end_time=data.end_time,
+            ticket_price=data.ticket_price,
         )
 
     except ValueError as exc:

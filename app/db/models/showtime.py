@@ -4,14 +4,16 @@ from sqlmodel import Field, SQLModel
 
 
 class Showtime(SQLModel, table=True):
-	__tablename__ = "showtimes"
+    __tablename__ = "showtimes"
 
-	id: int | None = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
 
-	film_id: int = Field(foreign_key="films.id", index=True)
-	screen_id: int = Field(foreign_key="screens.id", index=True)
+    film_id: int = Field(foreign_key="films.id", index=True)
+    screen_id: int = Field(foreign_key="screens.id", index=True)
 
-	start_time: datetime
-	end_time: datetime
+    start_time: datetime
+    end_time: datetime
 
-	created_at: datetime = Field(default_factory=datetime.utcnow)
+    ticket_price: float
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
