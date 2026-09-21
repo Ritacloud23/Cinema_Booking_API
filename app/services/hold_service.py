@@ -37,7 +37,10 @@ def create_hold(
             raise ValueError("Seat is currently held")
 
         existing_hold.status = "expired"
+        seat.status = "available"
+
         session.add(existing_hold)
+        session.add(seat)
 
     if seat.status != "available":
         raise ValueError("Seat is not available")
