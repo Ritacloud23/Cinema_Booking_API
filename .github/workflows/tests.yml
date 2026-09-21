@@ -38,6 +38,12 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
+      - name: Create test database
+        env:
+          PGPASSWORD: screenhive_password
+        run: |
+          psql -h localhost -U screenhive -d screenhive -c "CREATE DATABASE screenhive_test;"
+
       - name: Run tests
         env:
           DATABASE_URL: postgresql+psycopg://screenhive:screenhive_password@localhost:5432/screenhive
