@@ -118,3 +118,25 @@ User A → locks seat → creates hold → commits
 User B → waits → checks seat → 409 Conflict
 Lesson
 The database, not application timing or luck, must protect the seat from concurrent booking attempts.
+
+10. No Separate Test Database
+Problem
+Our test files existed, but there was no separate database for automated tests. Running tests against the development database could modify or destroy actual ScreenHive development data.
+Cause
+We initially had only one PostgreSQL database: screenhive.
+Solution
+Created a dedicated PostgreSQL database called screenhive_test inside the existing PostgreSQL container.
+The test database was then populated with the same 10 tables used by ScreenHive:
+
+users
+films
+screens
+showtimes
+seat_inventory
+holds
+bookings
+booking_seats
+payments
+processed_events
+Lesson
+Automated tests should run against an isolated database so test operations cannot affect development data.
