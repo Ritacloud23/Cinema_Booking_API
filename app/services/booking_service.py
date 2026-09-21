@@ -7,6 +7,7 @@ from app.db.models.booking import Booking
 from app.db.models.booking_seat import BookingSeat
 from app.db.models.hold import Hold
 from app.db.models.seat_inventory import SeatInventory
+from app.db.models.showtime import Showtime
 
 
 def create_booking(
@@ -77,13 +78,21 @@ def create_booking(
     if seat.status != "held":
         raise ValueError("Seat is not held")
 
+    showtime = session.exec(
+        select(Showtime)
+        .where(Showtime.id == seat.showtime_id)
+    ).first()
+
+    if showtime is None:
+        raise ValueError("Showtime not found")
+
     # Create the booking, but DO NOT book the seat yet.
     booking = Booking(
         user_id=user_id,
         showtime_id=seat.showtime_id,
         reference=f"SH-{uuid.uuid4().hex[:12].upper()}",
         status="pending",
-        total_amount=0.0,
+        total_amount=showtime.ticket_price,
     )
 
     session.add(booking)
