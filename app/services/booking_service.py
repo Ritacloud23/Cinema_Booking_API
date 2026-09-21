@@ -1,8 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import select
-from sqlmodel import Session
+from sqlmodel import Session,select
 
 from app.db.models.booking import Booking
 from app.db.models.booking_seat import BookingSeat

@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
-from sqlalchemy import select
-from sqlmodel import Session
+from sqlmodel import Session,select
 
 from app.db.models.hold import Hold
 from app.db.models.seat_inventory import SeatInventory
@@ -24,7 +23,7 @@ def create_hold(
         raise ValueError("Seat not found")
 
     now = datetime.utcnow()
-    
+
     existing_hold = session.exec(
         select(Hold)
         .where(
