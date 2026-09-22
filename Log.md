@@ -160,3 +160,26 @@ Updated `create_hold()` so that when an active hold has expired, both states are
 python
 existing_hold.status = "expired"
 seat.status = "available"
+
+Problem: Tests failed after adding Film.base_price
+Problem
+ After adding the required base_price field to the Film model, uv run pytest failed in tests/test_holds.py.
+Cause
+ Some test fixtures created Film objects without providing base_price. PostgreSQL therefore rejected the insert because base_price is a required NOT NULL column.
+The error was:
+
+sqlalchemy.exc.IntegrityError:
+null value in column "base_price" of relation "films"
+violates not-null constraint
+Solution
+ Updated the affected Film(...) objects in tests/test_holds.py to include:
+
+
+base_price=5000,
+We also cleaned up the repeated imports inside the test functions.
+Lesson
+ When a required database field is added to an existing model, all test fixtures and seed data that create that model must be updated. A model change isn't complete until the existing test data reflects the new schema.
+And importantly, after the fix:
+
+uv run pytest
+passed successfully.

@@ -8,3 +8,4 @@ from app.db.models.screen import Screen
 from app.db.models.seat_inventory import SeatInventory
 from app.db.models.showtime import Showtime
 from app.db.models.user import User
+from app.db.models.price_rule import PriceRule
