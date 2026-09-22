@@ -546,4 +546,101 @@ def test_api_user_can_create_booking_from_hold(client, session):
     assert data["showtime_id"] == showtime.id
     assert data["status"] == "pending"
     assert data["total_amount"] == 5000
+    assert data["reference"].startswith("SH-")
+
+def test_api_user_can_create_booking_from_hold(client, session):
+    from datetime import datetime, timedelta
+
+    from app.core.security import hash_password
+    from app.db.models.film import Film
+    from app.db.models.screen import Screen
+    from app.db.models.seat_inventory import SeatInventory
+    from app.db.models.showtime import Showtime
+    from app.db.models.user import User
+    from app.services.hold_service import create_hold
+
+    user = User(
+        email="bookingapi@example.com",
+        password_hash=hash_password("password123"),
+        full_name="Booking API User",
+        role="moviegoer",
+    )
+    session.add(user)
+
+    film = Film(
+        title="Booking API Film",
+        description="Film for booking API testing",
+        duration_minutes=120,
+        rating="PG",
+    )
+    session.add(film)
+
+    screen = Screen(
+        name="Booking API Screen",
+        total_seats=10,
+    )
+    session.add(screen)
+
+    session.commit()
+
+    session.refresh(user)
+    session.refresh(film)
+    session.refresh(screen)
+
+    showtime = Showtime(
+        film_id=film.id,
+        screen_id=screen.id,
+        start_time=datetime.utcnow(),
+        end_time=datetime.utcnow() + timedelta(hours=2),
+        ticket_price=5000,
+    )
+    session.add(showtime)
+    session.commit()
+    session.refresh(showtime)
+
+    seat = SeatInventory(
+        showtime_id=showtime.id,
+        seat_number="A1",
+        status="available",
+    )
+    session.add(seat)
+    session.commit()
+    session.refresh(seat)
+
+    hold = create_hold(
+        session=session,
+        user_id=user.id,
+        seat_inventory_id=seat.id,
+    )
+
+    login_response = client.post(
+        "/api/v1/auth/login",
+        data={
+            "username": "bookingapi@example.com",
+            "password": "password123",
+        },
+    )
+
+    assert login_response.status_code == 200
+
+    token = login_response.json()["access_token"]
+
+    response = client.post(
+        "/api/v1/bookings",
+        json={
+            "hold_id": hold.id,
+        },
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+
+    assert data["user_id"] == user.id
+    assert data["showtime_id"] == showtime.id
+    assert data["status"] == "pending"
+    assert data["total_amount"] == 5000
     assert data["reference"].startswith("SH-")                
