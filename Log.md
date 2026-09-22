@@ -140,3 +140,23 @@ payments
 processed_events
 Lesson
 Automated tests should run against an isolated database so test operations cannot affect development data.
+
+Problem: Tests passed locally but failed in GitHub Actions because screenhive_test did not exist in the fresh CI PostgreSQL environment.
+Cause: The test database had been created manually in the local Docker PostgreSQL instance, but GitHub Actions creates a fresh PostgreSQL instance for every run.
+Solution: Added a CI step that creates screenhive_test before running pytest.
+Lesson: Local infrastructure changes do not exist in CI. Test environments must explicitly create all required resources.
+
+11. Expired Hold Did Not Release the Seat
+
+Problem
+An expired hold could not be reclaimed by another user.
+
+Cause
+The hold service changed the expired Hold status to `expired`, but did not change the associated seat status from `held` back to `available`.
+
+ Solution
+Updated `create_hold()` so that when an active hold has expired, both states are updated:
+
+python
+existing_hold.status = "expired"
+seat.status = "available"
