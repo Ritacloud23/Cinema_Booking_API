@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from app.services.pricing_service import get_film_price
 
 from sqlmodel import Session,select
 
@@ -87,12 +88,18 @@ def create_booking(
         raise ValueError("Showtime not found")
 
     # Create the booking, but DO NOT book the seat yet.
+    price = get_film_price(
+        session=session,
+        film_id=showtime.film_id,
+        showtime_start=showtime.start_time,
+    )
+
     booking = Booking(
         user_id=user_id,
         showtime_id=seat.showtime_id,
         reference=f"SH-{uuid.uuid4().hex[:12].upper()}",
         status="pending",
-        total_amount=showtime.ticket_price,
+        total_amount=price,
     )
 
     session.add(booking)

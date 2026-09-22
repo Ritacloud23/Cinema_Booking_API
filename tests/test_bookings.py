@@ -11,6 +11,7 @@ from app.db.models.showtime import Showtime
 from app.db.models.user import User
 from app.services.booking_service import create_booking
 from app.services.hold_service import create_hold
+from app.db.models.price_rule import PriceRule
 
 
 def test_user_can_create_booking_from_hold(session):
@@ -668,3 +669,76 @@ def test_api_cannot_create_booking_from_expired_hold(client, session):
 
     assert response.status_code == 409
     assert response.json()["detail"] == "Hold has expired"
+
+def test_booking_uses_active_price_rule(session):
+    user = User(
+        email="pricingbooking@example.com",
+        password_hash=hash_password("password123"),
+        full_name="Pricing Booking User",
+        role="moviegoer",
+    )
+
+    film = Film(
+        title="Pricing Booking Film",
+        description="Testing booking pricing",
+        duration_minutes=120,
+        rating="PG",
+        base_price=5000,
+    )
+
+    screen = Screen(
+        name="Pricing Booking Screen",
+        total_seats=10,
+    )
+
+    session.add(user)
+    session.add(film)
+    session.add(screen)
+    session.commit()
+
+    showtime = Showtime(
+        film_id=film.id,
+        screen_id=screen.id,
+        start_time=datetime(2026, 9, 27, 19, 0),
+        end_time=datetime(2026, 9, 27, 21, 0),
+        ticket_price=5000,
+    )
+
+    session.add(showtime)
+    session.commit()
+
+    seat = SeatInventory(
+        showtime_id=showtime.id,
+        seat_number="A1",
+        status="available",
+    )
+
+    session.add(seat)
+    session.commit()
+
+    rule = PriceRule(
+        film_id=film.id,
+        name="Weekend Promo",
+        price=4000,
+        starts_at=datetime(2026, 9, 27, 0, 0),
+        ends_at=datetime(2026, 9, 27, 23, 59),
+        priority=10,
+        active=True,
+    )
+
+    session.add(rule)
+    session.commit()
+
+    hold = create_hold(
+        session=session,
+        user_id=user.id,
+        seat_inventory_id=seat.id,
+    )
+
+    booking = create_booking(
+        session=session,
+        user_id=user.id,
+        hold_id=hold.id,
+    )
+
+    assert booking.total_amount == 4000
