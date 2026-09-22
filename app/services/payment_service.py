@@ -1,64 +1,42 @@
+import uuid
+
 from sqlmodel import Session, select
 
+from app.db.models.booking import Booking
 from app.db.models.payment import Payment
-from app.db.models.processed_event import ProcessedEvent
 
 
-def process_payment_webhook(
-    session: Session,
-    event_id: str,
-    event_type: str,
-    reference: str,
-    amount: float,
-    currency: str,
-):
-    existing_event = session.exec(
-        select(ProcessedEvent)
-        .where(
-            ProcessedEvent.event_id == event_id
-        )
+def create_payment(session: Session, user_id: int, booking_id: int):
+    booking = session.exec(
+        select(Booking).where(Booking.id == booking_id)
     ).first()
 
-    if existing_event:
-        return "duplicate"
+    if booking is None:
+        raise ValueError("Booking not found")
 
-    payment = session.exec(
-        select(Payment)
-        .where(
-            Payment.reference == reference
-        )
-        .with_for_update()
+    if booking.user_id != user_id:
+        raise PermissionError("You do not own this booking")
+
+    if booking.status != "pending":
+        raise ValueError("Booking is not pending")
+
+    existing_payment = session.exec(
+        select(Payment).where(Payment.booking_id == booking_id)
     ).first()
 
-    if payment is None:
-        session.add(
-            ProcessedEvent(
-                event_id=event_id,
-                event_type=event_type,
-            )
-        )
+    if existing_payment:
+        return existing_payment
 
-        session.commit()
-
-        return "orphan"
-
-    if payment.amount != amount:
-        raise ValueError("Payment amount mismatch")
-
-    if payment.currency != currency:
-        raise ValueError("Payment currency mismatch")
-
-    payment.status = "succeeded"
-
-    session.add(
-        ProcessedEvent(
-            event_id=event_id,
-            event_type=event_type,
-        )
+    payment = Payment(
+        booking_id=booking.id,
+        reference=f"PAY-{uuid.uuid4().hex[:12].upper()}",
+        amount=booking.total_amount,
+        currency="NGN",
+        status="pending",
     )
 
     session.add(payment)
-
     session.commit()
+    session.refresh(payment)
 
-    return "processed"
+    return payment

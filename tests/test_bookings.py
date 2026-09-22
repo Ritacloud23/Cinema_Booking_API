@@ -1,16 +1,16 @@
 from datetime import datetime, timedelta
 
+import pytest
+
+from app.core.security import hash_password
 from app.db.models.booking import Booking
 from app.db.models.film import Film
-from app.db.models.hold import Hold
 from app.db.models.screen import Screen
 from app.db.models.seat_inventory import SeatInventory
 from app.db.models.showtime import Showtime
 from app.db.models.user import User
 from app.services.booking_service import create_booking
 from app.services.hold_service import create_hold
-from app.core.security import hash_password
-import pytest
 
 
 def test_user_can_create_booking_from_hold(session):
@@ -26,6 +26,7 @@ def test_user_can_create_booking_from_hold(session):
         description="A test film",
         duration_minutes=120,
         rating="PG",
+        base_price=5000,
     )
 
     screen = Screen(
@@ -97,6 +98,7 @@ def test_user_cannot_use_another_users_hold(session):
         description="A test film",
         duration_minutes=120,
         rating="PG",
+        base_price=5000,
     )
 
     screen = Screen(
@@ -141,7 +143,8 @@ def test_user_cannot_use_another_users_hold(session):
             session=session,
             user_id=user_b.id,
             hold_id=hold.id,
-        )    
+        )
+
 
 def test_booking_fails_when_hold_has_expired(session):
     user = User(
@@ -156,6 +159,7 @@ def test_booking_fails_when_hold_has_expired(session):
         description="A test film",
         duration_minutes=120,
         rating="PG",
+        base_price=5000,
     )
 
     screen = Screen(
@@ -206,7 +210,8 @@ def test_booking_fails_when_hold_has_expired(session):
         )
 
     assert hold.status == "expired"
-    assert seat.status == "available"   
+    assert seat.status == "available"
+
 
 def test_booking_fails_when_hold_does_not_exist(session):
     user = User(
@@ -224,7 +229,9 @@ def test_booking_fails_when_hold_does_not_exist(session):
             session=session,
             user_id=user.id,
             hold_id=999999,
-        )  
+        )
+
+
 def test_booking_fails_when_hold_is_no_longer_active(session):
     user = User(
         email="inactivehold@example.com",
@@ -238,6 +245,7 @@ def test_booking_fails_when_hold_is_no_longer_active(session):
         description="A test film",
         duration_minutes=120,
         rating="PG",
+        base_price=5000,
     )
 
     screen = Screen(
@@ -285,7 +293,8 @@ def test_booking_fails_when_hold_is_no_longer_active(session):
             session=session,
             user_id=user.id,
             hold_id=hold.id,
-        )               
+        )
+
 
 def test_booking_fails_when_seat_is_not_held(session):
     user = User(
@@ -300,6 +309,7 @@ def test_booking_fails_when_seat_is_not_held(session):
         description="A test film",
         duration_minutes=120,
         rating="PG",
+        base_price=5000,
     )
 
     screen = Screen(
@@ -347,19 +357,10 @@ def test_booking_fails_when_seat_is_not_held(session):
             session=session,
             user_id=user.id,
             hold_id=hold.id,
-        )   
+        )
+
 
 def test_api_user_cannot_book_another_users_hold(client, session):
-    from datetime import datetime, timedelta
-
-    from app.core.security import hash_password
-    from app.db.models.film import Film
-    from app.db.models.screen import Screen
-    from app.db.models.seat_inventory import SeatInventory
-    from app.db.models.showtime import Showtime
-    from app.db.models.user import User
-    from app.services.hold_service import create_hold
-
     user_a = User(
         email="owner@example.com",
         password_hash=hash_password("password123"),
@@ -382,15 +383,16 @@ def test_api_user_cannot_book_another_users_hold(client, session):
         description="Film for ownership testing",
         duration_minutes=120,
         rating="PG",
+        base_price=5000,
     )
-    session.add(film)
 
     screen = Screen(
         name="Ownership Test Screen",
         total_seats=10,
     )
-    session.add(screen)
 
+    session.add(film)
+    session.add(screen)
     session.commit()
 
     session.refresh(user_a)
@@ -405,6 +407,7 @@ def test_api_user_cannot_book_another_users_hold(client, session):
         end_time=datetime.utcnow() + timedelta(hours=2),
         ticket_price=5000,
     )
+
     session.add(showtime)
     session.commit()
     session.refresh(showtime)
@@ -414,6 +417,7 @@ def test_api_user_cannot_book_another_users_hold(client, session):
         seat_number="A1",
         status="available",
     )
+
     session.add(seat)
     session.commit()
     session.refresh(seat)
@@ -447,43 +451,33 @@ def test_api_user_cannot_book_another_users_hold(client, session):
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "You do not own this hold" 
-
+    assert response.json()["detail"] == "You do not own this hold"
 
 
 def test_api_user_can_create_booking_from_hold(client, session):
-    from datetime import datetime, timedelta
-
-    from app.core.security import hash_password
-    from app.db.models.film import Film
-    from app.db.models.screen import Screen
-    from app.db.models.seat_inventory import SeatInventory
-    from app.db.models.showtime import Showtime
-    from app.db.models.user import User
-    from app.services.hold_service import create_hold
-
     user = User(
         email="bookingapi@example.com",
         password_hash=hash_password("password123"),
         full_name="Booking API User",
         role="moviegoer",
     )
-    session.add(user)
 
     film = Film(
         title="Booking API Film",
         description="Film for booking API testing",
         duration_minutes=120,
         rating="PG",
+        base_price=5000,
     )
-    session.add(film)
 
     screen = Screen(
         name="Booking API Screen",
         total_seats=10,
     )
-    session.add(screen)
 
+    session.add(user)
+    session.add(film)
+    session.add(screen)
     session.commit()
 
     session.refresh(user)
@@ -497,6 +491,7 @@ def test_api_user_can_create_booking_from_hold(client, session):
         end_time=datetime.utcnow() + timedelta(hours=2),
         ticket_price=5000,
     )
+
     session.add(showtime)
     session.commit()
     session.refresh(showtime)
@@ -506,6 +501,7 @@ def test_api_user_can_create_booking_from_hold(client, session):
         seat_number="A1",
         status="available",
     )
+
     session.add(seat)
     session.commit()
     session.refresh(seat)
@@ -548,39 +544,68 @@ def test_api_user_can_create_booking_from_hold(client, session):
     assert data["total_amount"] == 5000
     assert data["reference"].startswith("SH-")
 
-def test_api_user_can_create_booking_from_hold(client, session):
-    from datetime import datetime, timedelta
 
-    from app.core.security import hash_password
-    from app.db.models.film import Film
-    from app.db.models.screen import Screen
-    from app.db.models.seat_inventory import SeatInventory
-    from app.db.models.showtime import Showtime
-    from app.db.models.user import User
-    from app.services.hold_service import create_hold
-
+def test_api_cannot_create_booking_from_nonexistent_hold(client, session):
     user = User(
-        email="bookingapi@example.com",
+        email="missingholdapi@example.com",
         password_hash=hash_password("password123"),
-        full_name="Booking API User",
+        full_name="Missing Hold API User",
         role="moviegoer",
     )
+
     session.add(user)
+    session.commit()
+
+    login_response = client.post(
+        "/api/v1/auth/login",
+        data={
+            "username": "missingholdapi@example.com",
+            "password": "password123",
+        },
+    )
+
+    assert login_response.status_code == 200
+
+    token = login_response.json()["access_token"]
+
+    response = client.post(
+        "/api/v1/bookings",
+        json={
+            "hold_id": 999999,
+        },
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Hold not found"
+
+
+def test_api_cannot_create_booking_from_expired_hold(client, session):
+    user = User(
+        email="expiredapi@example.com",
+        password_hash=hash_password("password123"),
+        full_name="Expired API User",
+        role="moviegoer",
+    )
 
     film = Film(
-        title="Booking API Film",
-        description="Film for booking API testing",
+        title="Expired API Film",
+        description="Film for expired hold testing",
         duration_minutes=120,
         rating="PG",
+        base_price=5000,
     )
-    session.add(film)
 
     screen = Screen(
-        name="Booking API Screen",
+        name="Expired API Screen",
         total_seats=10,
     )
-    session.add(screen)
 
+    session.add(user)
+    session.add(film)
+    session.add(screen)
     session.commit()
 
     session.refresh(user)
@@ -594,6 +619,7 @@ def test_api_user_can_create_booking_from_hold(client, session):
         end_time=datetime.utcnow() + timedelta(hours=2),
         ticket_price=5000,
     )
+
     session.add(showtime)
     session.commit()
     session.refresh(showtime)
@@ -603,6 +629,7 @@ def test_api_user_can_create_booking_from_hold(client, session):
         seat_number="A1",
         status="available",
     )
+
     session.add(seat)
     session.commit()
     session.refresh(seat)
@@ -613,10 +640,14 @@ def test_api_user_can_create_booking_from_hold(client, session):
         seat_inventory_id=seat.id,
     )
 
+    hold.expires_at = datetime.utcnow() - timedelta(minutes=1)
+    session.add(hold)
+    session.commit()
+
     login_response = client.post(
         "/api/v1/auth/login",
         data={
-            "username": "bookingapi@example.com",
+            "username": "expiredapi@example.com",
             "password": "password123",
         },
     )
@@ -635,12 +666,5 @@ def test_api_user_can_create_booking_from_hold(client, session):
         },
     )
 
-    assert response.status_code == 201
-
-    data = response.json()
-
-    assert data["user_id"] == user.id
-    assert data["showtime_id"] == showtime.id
-    assert data["status"] == "pending"
-    assert data["total_amount"] == 5000
-    assert data["reference"].startswith("SH-")                
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Hold has expired"

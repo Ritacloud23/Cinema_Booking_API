@@ -9,6 +9,7 @@ from app.routers.showtimes import router as showtime_router
 from app.routers.seatmap import router as seatmap_router
 from app.routers.bookings import router as booking_router
 from app.routers.screens import router as screen_router
+from app.routers.payments import router as payment_router
 
 app = FastAPI(title="ScreenHive API")
 
@@ -19,6 +20,7 @@ app.include_router(screen_router)
 app.include_router(showtime_router)
 app.include_router(seatmap_router)
 app.include_router(booking_router)
+app.include_router(payment_router)
 
 
 @app.get("/")

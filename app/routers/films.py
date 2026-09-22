@@ -30,6 +30,7 @@ def create(
         data.description,
         data.duration_minutes,
         data.rating,
+        data.base_price,
     )
 
 
