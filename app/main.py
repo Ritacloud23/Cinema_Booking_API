@@ -14,8 +14,26 @@ from app.routers.payments import router as payment_router
 from app.routers.webhooks import router as webhook_router
 from app.middleware.request import request_middleware
 from app.routers.stream import router as stream_router
+from contextlib import asynccontextmanager
+from app.jobs.expire_holds import start_scheduler, stop_scheduler
 
-app = FastAPI(title="ScreenHive API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    start_scheduler()
+    try:
+        yield
+    finally:
+        stop_scheduler()
+
+
+app = FastAPI(
+    title="ScreenHive API",
+    version="1.0.0",
+    lifespan=lifespan,
+
+ )
+
 
 
 app.middleware("http")(request_middleware)

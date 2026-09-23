@@ -2,31 +2,42 @@ import uuid
 
 from sqlmodel import Session, select
 
+from app.cache.redis import redis_client
 from app.db.models.booking import Booking
 from app.db.models.booking_seat import BookingSeat
+from app.db.models.hold import Hold
 from app.db.models.payment import Payment
 from app.db.models.processed_event import ProcessedEvent
 from app.db.models.seat_inventory import SeatInventory
-from app.cache.redis import redis_client
 from app.firestore.live_board import publish_showtime_board
 
 
-def create_payment(session: Session, user_id: int, booking_id: int):
+def create_payment(
+    session: Session,
+    user_id: int,
+    booking_id: int,
+):
     booking = session.exec(
-        select(Booking).where(Booking.id == booking_id)
+        select(Booking).where(
+            Booking.id == booking_id
+        )
     ).first()
 
     if booking is None:
         raise ValueError("Booking not found")
 
     if booking.user_id != user_id:
-        raise PermissionError("You do not own this booking")
+        raise PermissionError(
+            "You do not own this booking"
+        )
 
     if booking.status != "pending":
         raise ValueError("Booking is not pending")
 
     existing_payment = session.exec(
-        select(Payment).where(Payment.booking_id == booking_id)
+        select(Payment).where(
+            Payment.booking_id == booking_id
+        )
     ).first()
 
     if existing_payment:
@@ -73,10 +84,13 @@ def process_payment_webhook(
             event_id=event_id,
             event_type=event_type,
         )
+
         session.add(event)
         session.commit()
 
         return {"message": "Payment reference not found"}
+
+    booking = None
 
     if event_type == "payment.succeeded":
         payment.status = "success"
@@ -99,13 +113,25 @@ def process_payment_webhook(
             for booking_seat in booking_seats:
                 seat = session.exec(
                     select(SeatInventory).where(
-                        SeatInventory.id == booking_seat.seat_inventory_id
+                        SeatInventory.id
+                        == booking_seat.seat_inventory_id
                     )
                 ).first()
 
                 if seat:
                     seat.status = "booked"
                     session.add(seat)
+
+                    hold = session.exec(
+                        select(Hold).where(
+                            Hold.seat_inventory_id == seat.id,
+                            Hold.status == "active",
+                        )
+                    ).first()
+
+                    if hold:
+                        hold.status = "paid"
+                        session.add(hold)
 
             session.add(booking)
 
@@ -121,7 +147,8 @@ def process_payment_webhook(
     # PostgreSQL must be updated first.
     session.commit()
 
-    # Invalidate the cached seat map after the booking is committed.
+    # Invalidate the cached seat map only after
+    # the database transaction succeeds.
     if event_type == "payment.succeeded" and booking:
         redis_client.delete(
             f"seatmap:{booking.showtime_id}"
