@@ -6,8 +6,7 @@ from app.db.models.film import Film
 from app.db.models.screen import Screen
 from app.db.models.seat_inventory import SeatInventory
 from app.db.models.showtime import Showtime
-from app.firestore.client import db
-
+from app.firestore.client import get_firestore_db
 
 COLLECTION_NAME = "live_showtimes"
 
@@ -57,13 +56,18 @@ def publish_showtime_board(session: Session, showtime_id: int):
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    db.collection(COLLECTION_NAME).document(
+    get_firestore_db().collection(COLLECTION_NAME).document(
         f"showtime_{showtime_id}"
     ).set(data)
 
     return data
 
 def get_showtime_board(showtime_id: int):
+    db = get_firestore_db()
+
+    if db is None:
+        return None
+
     document = (
         db.collection(COLLECTION_NAME)
         .document(f"showtime_{showtime_id}")

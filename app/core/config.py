@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     PAYSTACK_SECRET: str = ""
     FIREBASE_PROJECT_ID: str = ""
     FIREBASE_CREDENTIALS_PATH: str = ""
+    FIRESTORE_ENABLED: bool = True
 
     model_config = SettingsConfigDict(env_file=".env")
 
