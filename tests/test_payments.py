@@ -13,6 +13,10 @@ from app.db.models.user import User
 from app.services.booking_service import create_booking
 from app.services.hold_service import create_hold
 from app.services.payment_service import create_payment
+from app.cache.redis import redis_client
+from app.services.payment_service import process_payment_webhook
+from app.services.seatmap_service import get_seat_map
+from app.firestore.live_board import get_showtime_board
 
 
 def create_booking_setup(session):
@@ -190,3 +194,65 @@ def test_duplicate_payment_returns_existing_payment(session):
     ).all()
 
     assert len(payments) == 1
+
+def test_successful_payment_invalidates_seat_map_cache(session):
+    user, booking = create_booking_setup(session)
+
+    payment = create_payment(
+        session=session,
+        user_id=user.id,
+        booking_id=booking.id,
+    )
+
+    # Build the seat-map cache before payment succeeds.
+    seat_map = get_seat_map(
+        session=session,
+        showtime_id=booking.showtime_id,
+    )
+
+    assert seat_map[0].status == "held"
+
+    cache_key = f"seatmap:{booking.showtime_id}"
+
+    assert redis_client.get(cache_key) is not None
+
+    process_payment_webhook(
+        session=session,
+        event_id="payment-cache-test-001",
+        event_type="payment.succeeded",
+        reference=payment.reference,
+    )
+
+    # Successful payment should invalidate the stale cache.
+    assert redis_client.get(cache_key) is None
+
+    # The next read should come from PostgreSQL and show the new state.
+    fresh_seat_map = get_seat_map(
+        session=session,
+        showtime_id=booking.showtime_id,
+    )
+
+    assert fresh_seat_map[0].status == "booked"
+
+def test_successful_payment_updates_live_board(session):
+    user, booking = create_booking_setup(session)
+
+    payment = create_payment(
+        session=session,
+        user_id=user.id,
+        booking_id=booking.id,
+    )
+
+    process_payment_webhook(
+        session=session,
+        event_id="payment-firestore-test-001",
+        event_type="payment.succeeded",
+        reference=payment.reference,
+    )
+
+    board = get_showtime_board(
+        booking.showtime_id,
+    )
+
+    assert board["booked_seats"] == 1
+    assert board["held_seats"] == 0        

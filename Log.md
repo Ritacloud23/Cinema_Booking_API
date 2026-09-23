@@ -238,3 +238,73 @@ to:
 ### Lesson
 
 Real-time data should have a clear source of truth and a deliberate data flow. PostgreSQL remains the authoritative source for seat state, while Firestore is used only for the live, stream-shaped representation. SSE then provides a persistent connection through which clients can receive those updates without repeatedly polling the API.
+
+Firestore Initialization and CI Test Failures
+Problem
+GitHub Actions initially failed while running the test suite because the application attempted to initialize Firestore during application import.
+After introducing a FIRESTORE_ENABLED configuration flag to prevent Firestore from initializing in CI, the test suite exposed another issue:
+AttributeError: 'NoneType' object has no attribute 'collection'
+This caused multiple tests involving holds, payments, and seat-map invalidation to fail.
+Cause
+There were two related problems.
+First, the Firestore client was initialized too early. Importing the application could trigger Firebase initialization, which required the Firebase service-account credentials file. The credentials file exists locally but is intentionally not available in GitHub Actions.
+Second, after Firestore was disabled in CI, get_firestore_db() correctly returned None. However, some Firestore functions still assumed that a database connection always existed and attempted to call:
+db.collection(...)
+on the None value.
+This meant that disabling the external service prevented initialization but did not completely isolate the rest of the application from that service.
+Solution
+Added a FIRESTORE_ENABLED setting to app/core/config.py:
+FIRESTORE_ENABLED: bool = True
+Changed Firestore initialization to be lazy through get_firestore_db() instead of initializing Firebase immediately when the module was imported.
+The GitHub Actions test environment was configured with:
+FIRESTORE_ENABLED: false
+The Firestore live-board functions were also updated to safely handle a disabled Firestore connection.
+When Firestore is disabled, publish_showtime_board() returns the generated board data without attempting to write to Firestore, while get_showtime_board() safely returns None.
+This keeps PostgreSQL as the source of truth and allows the application test suite to run without Firebase credentials.
+After the changes:
+
+• The local test suite passed with 45+ tests..
+• GitHub Actions also passed successfully..
+• Local Firestore and SSE functionality remained available because Firestore remains enabled by default..
+Lesson
+External services should be treated as optional dependencies when they are not required for every execution environment.
+It is not enough to prevent an external service from initializing. Every part of the application that depends on that service must also handle the service being unavailable or disabled.
+This reinforced the importance of designing clear boundaries between core application logic and external infrastructure. PostgreSQL remains authoritative for ScreenHive data, while Firestore provides the optional live-board layer used for real-time streaming.
+
+## Payment Success Did Not Invalidate Seat Map Cache
+
+### Problem
+
+After a successful payment webhook, the booking and seats were correctly updated in PostgreSQL, but the Redis seat-map cache still contained the old `held` state.
+
+This meant a subsequent seat-map request could return stale seat information even though the payment had already confirmed the booking.
+
+### Cause
+
+The payment service imported `redis_client` and `publish_showtime_board`, but the webhook function did not actually call them after the PostgreSQL update.
+
+The database state was therefore correct, but Redis still contained the previous seat-map projection.
+
+### Solution
+
+The payment webhook was updated so that after successfully processing the payment and committing the PostgreSQL transaction, it:
+
+1. Deletes `seatmap:{showtime_id}` from Redis.
+2. Publishes the updated showtime board to Firestore.
+
+The order is intentional:
+
+```text
+PostgreSQL update
+       ↓
+PostgreSQL commit
+       ↓
+Redis invalidation
+       ↓
+Firestore live-board update
+
+PostgreSQL remains the source of truth, while Redis and Firestore act as projections.
+Regression tests were added to verify both Redis invalidation and Firestore live-board updates after successful payment.
+Lesson
+Adding an import does not integrate a dependency into the execution flow. The important part is testing the complete state transition across PostgreSQL, Redis, and Firestore.
+When a database mutation affects cached or live data, the related cache invalidation and projection update must be explicitly tested.

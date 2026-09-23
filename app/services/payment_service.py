@@ -7,6 +7,8 @@ from app.db.models.booking_seat import BookingSeat
 from app.db.models.payment import Payment
 from app.db.models.processed_event import ProcessedEvent
 from app.db.models.seat_inventory import SeatInventory
+from app.cache.redis import redis_client
+from app.firestore.live_board import publish_showtime_board
 
 
 def create_payment(session: Session, user_id: int, booking_id: int):
@@ -115,6 +117,19 @@ def process_payment_webhook(
     )
 
     session.add(event)
+
+    # PostgreSQL must be updated first.
     session.commit()
+
+    # Invalidate the cached seat map after the booking is committed.
+    if event_type == "payment.succeeded" and booking:
+        redis_client.delete(
+            f"seatmap:{booking.showtime_id}"
+        )
+
+        publish_showtime_board(
+            session,
+            booking.showtime_id,
+        )
 
     return {"message": "Webhook processed"}
