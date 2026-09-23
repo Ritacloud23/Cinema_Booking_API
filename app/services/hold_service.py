@@ -3,6 +3,7 @@ from sqlmodel import Session,select
 
 from app.db.models.hold import Hold
 from app.db.models.seat_inventory import SeatInventory
+from app.services.seatmap_service import invalidate_seat_map
 
 
 HOLD_DURATION_MINUTES = 10
@@ -60,8 +61,9 @@ def create_hold(
 
     session.add(hold)
     session.add(seat)
-
     session.commit()
-    session.refresh(hold)
 
+    invalidate_seat_map(seat.showtime_id)
+
+    session.refresh(hold)
     return hold

@@ -12,6 +12,7 @@ dependencies = [
     "pydantic-settings>=2.15.0",
     "pyjwt>=2.14.0",
     "python-multipart>=0.0.32",
+    "redis>=8.1.0",
     "sqlmodel>=0.0.42",
 ]
 

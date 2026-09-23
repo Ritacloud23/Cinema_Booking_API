@@ -1,8 +1,12 @@
+import json
+
 from sqlmodel import Session, select
 
+from app.cache.redis import redis_client
 from app.db.models.screen import Screen
 from app.db.models.seat_inventory import SeatInventory
 from app.db.models.showtime import Showtime
+from app.schemas.seat_inventory import SeatResponse
 
 
 def generate_seats(
@@ -65,7 +69,19 @@ def get_seat_map(
     session: Session,
     showtime_id: int,
 ):
-    return list(
+    cache_key = f"seatmap:{showtime_id}"
+
+    cached_seats = redis_client.get(cache_key)
+
+    if cached_seats:
+        seats = json.loads(cached_seats)
+
+        return [
+            SeatResponse.model_validate(seat)
+            for seat in seats
+        ]
+
+    seats = list(
         session.exec(
             select(SeatInventory)
             .where(
@@ -74,3 +90,27 @@ def get_seat_map(
             .order_by(SeatInventory.seat_number)
         ).all()
     )
+
+    response = [
+        SeatResponse.model_validate(
+            seat,
+            from_attributes=True,
+        ).model_dump()
+        for seat in seats
+    ]
+
+    redis_client.set(
+        cache_key,
+        json.dumps(response),
+        ex=300,
+    )
+
+    return [
+        SeatResponse.model_validate(seat)
+        for seat in response
+    ]
+
+
+def invalidate_seat_map(showtime_id: int):
+    cache_key = f"seatmap:{showtime_id}"
+    redis_client.delete(cache_key)

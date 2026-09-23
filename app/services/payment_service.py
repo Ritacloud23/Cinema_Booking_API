@@ -3,7 +3,10 @@ import uuid
 from sqlmodel import Session, select
 
 from app.db.models.booking import Booking
+from app.db.models.booking_seat import BookingSeat
 from app.db.models.payment import Payment
+from app.db.models.processed_event import ProcessedEvent
+from app.db.models.seat_inventory import SeatInventory
 
 
 def create_payment(session: Session, user_id: int, booking_id: int):
@@ -40,3 +43,78 @@ def create_payment(session: Session, user_id: int, booking_id: int):
     session.refresh(payment)
 
     return payment
+
+
+def process_payment_webhook(
+    session: Session,
+    event_id: str,
+    event_type: str,
+    reference: str,
+):
+    existing_event = session.exec(
+        select(ProcessedEvent).where(
+            ProcessedEvent.event_id == event_id
+        )
+    ).first()
+
+    if existing_event:
+        return {"message": "Event already processed"}
+
+    payment = session.exec(
+        select(Payment).where(
+            Payment.reference == reference
+        )
+    ).first()
+
+    if payment is None:
+        event = ProcessedEvent(
+            event_id=event_id,
+            event_type=event_type,
+        )
+        session.add(event)
+        session.commit()
+
+        return {"message": "Payment reference not found"}
+
+    if event_type == "payment.succeeded":
+        payment.status = "success"
+
+        booking = session.exec(
+            select(Booking).where(
+                Booking.id == payment.booking_id
+            )
+        ).first()
+
+        if booking:
+            booking.status = "confirmed"
+
+            booking_seats = session.exec(
+                select(BookingSeat).where(
+                    BookingSeat.booking_id == booking.id
+                )
+            ).all()
+
+            for booking_seat in booking_seats:
+                seat = session.exec(
+                    select(SeatInventory).where(
+                        SeatInventory.id == booking_seat.seat_inventory_id
+                    )
+                ).first()
+
+                if seat:
+                    seat.status = "booked"
+                    session.add(seat)
+
+            session.add(booking)
+
+        session.add(payment)
+
+    event = ProcessedEvent(
+        event_id=event_id,
+        event_type=event_type,
+    )
+
+    session.add(event)
+    session.commit()
+
+    return {"message": "Webhook processed"}

@@ -2,16 +2,20 @@ from fastapi import Depends, FastAPI
 
 from app.core.security import get_current_user
 from app.db.models.user import User
+
 from app.routers.auth import router as auth_router
 from app.routers.holds import router as hold_router
 from app.routers.films import router as film_router
+from app.routers.screens import router as screen_router
 from app.routers.showtimes import router as showtime_router
 from app.routers.seatmap import router as seatmap_router
 from app.routers.bookings import router as booking_router
-from app.routers.screens import router as screen_router
 from app.routers.payments import router as payment_router
+from app.routers.webhooks import router as webhook_router
+
 
 app = FastAPI(title="ScreenHive API")
+
 
 app.include_router(auth_router)
 app.include_router(hold_router)
@@ -21,6 +25,7 @@ app.include_router(showtime_router)
 app.include_router(seatmap_router)
 app.include_router(booking_router)
 app.include_router(payment_router)
+app.include_router(webhook_router)
 
 
 @app.get("/")

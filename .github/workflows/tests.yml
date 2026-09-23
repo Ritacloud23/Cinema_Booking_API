@@ -23,6 +23,11 @@ jobs:
           --health-timeout=5s
           --health-retries=5
 
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379 
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -48,4 +53,5 @@ jobs:
         env:
           DATABASE_URL: postgresql+psycopg://screenhive:screenhive_password@localhost:5432/screenhive
           JWT_SECRET: test-secret
+          REDIS_URL: redis://localhost:6379/0
         run: uv run pytest
