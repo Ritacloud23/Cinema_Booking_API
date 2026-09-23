@@ -12,11 +12,12 @@ from app.routers.seatmap import router as seatmap_router
 from app.routers.bookings import router as booking_router
 from app.routers.payments import router as payment_router
 from app.routers.webhooks import router as webhook_router
-
+from app.middleware.request import request_middleware
 
 app = FastAPI(title="ScreenHive API")
 
 
+app.middleware("http")(request_middleware)
 app.include_router(auth_router)
 app.include_router(hold_router)
 app.include_router(film_router)
@@ -26,6 +27,7 @@ app.include_router(seatmap_router)
 app.include_router(booking_router)
 app.include_router(payment_router)
 app.include_router(webhook_router)
+
 
 
 @app.get("/")
