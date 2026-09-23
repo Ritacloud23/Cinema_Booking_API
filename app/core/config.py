@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     JWT_SECRET: str = ""
     PAYSTACK_SECRET: str = ""
     FIREBASE_PROJECT_ID: str = ""
+    FIREBASE_CREDENTIALS_PATH: str = ""
 
     model_config = SettingsConfigDict(env_file=".env")
 

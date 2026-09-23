@@ -183,3 +183,58 @@ And importantly, after the fix:
 
 uv run pytest
 passed successfully.
+
+Firestore Environment Variable Configuration Error
+Problem
+The Firestore connection could not initialize because Pydantic Settings rejected FIREBASE_CREDENTIALS_PATH as an unknown configuration field.
+Cause
+The .env file contained an extra colon after the equals sign:
+
+FIREBASE_CREDENTIALS_PATH:=firebase-service-account.json
+The correct environment variable format is:
+
+FIREBASE_CREDENTIALS_PATH=firebase-service-account.json
+Although FIREBASE_CREDENTIALS_PATH was correctly defined in app/core/config.py, the malformed .env entry caused Pydantic Settings to interpret the configuration incorrectly and raise an extra_forbidden validation error.
+Solution
+Corrected the .env entry by removing the extra colon:
+
+FIREBASE_CREDENTIALS_PATH=firebase-service-account.json
+Lesson
+Environment variables must follow the exact KEY=VALUE format. A small formatting error in .env can prevent the entire application configuration from loading, even when the corresponding setting is correctly defined in the Python configuration class.
+
+## Firestore Live Board and SSE Integration
+
+### Problem
+
+ScreenHive needed to provide real-time showtime seat updates to clients. Changes to seat availability needed to be reflected in the live board without requiring clients to repeatedly refresh the API.
+
+### Cause
+
+PostgreSQL is the source of truth for seat state, while Firestore was introduced for stream-shaped live data. However, there was initially no connection between seat state changes in PostgreSQL and the Firestore live board or SSE stream.
+
+This meant a seat could change from `available` to `held` in PostgreSQL without the live showtime board being updated.
+
+### Solution
+
+Implemented a Firestore live board for showtimes and an SSE endpoint for streaming updates to clients.
+
+When a seat is successfully held:
+
+1. PostgreSQL updates the seat state to `held`.
+2. The transaction is committed.
+3. Redis seat-map cache is invalidated.
+4. The updated showtime board is published to Firestore.
+5. The SSE endpoint detects the Firestore change.
+6. The client receives a `showtime_update` event.
+
+The integration was verified by creating a hold and observing the SSE stream change from:
+
+`available_seats: 27, held_seats: 3`
+
+to:
+
+`available_seats: 26, held_seats: 4`.
+
+### Lesson
+
+Real-time data should have a clear source of truth and a deliberate data flow. PostgreSQL remains the authoritative source for seat state, while Firestore is used only for the live, stream-shaped representation. SSE then provides a persistent connection through which clients can receive those updates without repeatedly polling the API.

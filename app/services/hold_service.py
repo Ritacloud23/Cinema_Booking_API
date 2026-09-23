@@ -1,10 +1,11 @@
 from datetime import datetime, timedelta
-from sqlmodel import Session,select
+
+from sqlmodel import Session, select
 
 from app.db.models.hold import Hold
 from app.db.models.seat_inventory import SeatInventory
+from app.firestore.live_board import publish_showtime_board
 from app.services.seatmap_service import invalidate_seat_map
-
 
 HOLD_DURATION_MINUTES = 10
 
@@ -65,5 +66,11 @@ def create_hold(
 
     invalidate_seat_map(seat.showtime_id)
 
+    publish_showtime_board(
+        session,
+        seat.showtime_id,
+    )
+
     session.refresh(hold)
+
     return hold
