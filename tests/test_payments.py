@@ -233,7 +233,7 @@ def test_successful_payment_invalidates_seat_map_cache(session):
     )
 
     assert fresh_seat_map[0].status == "booked"
-    
+
 
 @pytest.mark.skipif(
     not settings.FIRESTORE_ENABLED,
@@ -256,31 +256,8 @@ def test_successful_payment_updates_live_board(session):
     )
 
     board = get_showtime_board(
-        booking.showtime_id
-    )
-
-    assert board["booked_seats"] == 1
-    assert board["held_seats"] == 0
-
-def test_successful_payment_updates_live_board(session):
-    user, booking = create_booking_setup(session)
-
-    payment = create_payment(
-        session=session,
-        user_id=user.id,
-        booking_id=booking.id,
-    )
-
-    process_payment_webhook(
-        session=session,
-        event_id="payment-firestore-test-001",
-        event_type="payment.succeeded",
-        reference=payment.reference,
-    )
-
-    board = get_showtime_board(
         booking.showtime_id,
     )
 
     assert board["booked_seats"] == 1
-    assert board["held_seats"] == 0        
+    assert board["held_seats"] == 0
