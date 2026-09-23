@@ -12,6 +12,10 @@ COLLECTION_NAME = "live_showtimes"
 
 
 def publish_showtime_board(session: Session, showtime_id: int):
+    db = get_firestore_db()
+
+    if db is None:
+        return None
     showtime = session.exec(
         select(Showtime).where(Showtime.id == showtime_id)
     ).first()
