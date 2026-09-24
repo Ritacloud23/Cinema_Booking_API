@@ -1,21 +1,21 @@
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI
 
 from app.core.security import get_current_user
 from app.db.models.user import User
-
-from app.routers.auth import router as auth_router
-from app.routers.holds import router as hold_router
-from app.routers.films import router as film_router
-from app.routers.screens import router as screen_router
-from app.routers.showtimes import router as showtime_router
-from app.routers.seatmap import router as seatmap_router
-from app.routers.bookings import router as booking_router
-from app.routers.payments import router as payment_router
-from app.routers.webhooks import router as webhook_router
-from app.middleware.request import request_middleware
-from app.routers.stream import router as stream_router
-from contextlib import asynccontextmanager
 from app.jobs.expire_holds import start_scheduler, stop_scheduler
+from app.middleware.request import request_middleware
+from app.routers.auth import router as auth_router
+from app.routers.bookings import router as booking_router
+from app.routers.films import router as film_router
+from app.routers.holds import router as hold_router
+from app.routers.payments import router as payment_router
+from app.routers.screens import router as screen_router
+from app.routers.seatmap import router as seatmap_router
+from app.routers.showtimes import router as showtime_router
+from app.routers.stream import router as stream_router
+from app.routers.webhooks import router as webhook_router
 
 
 @asynccontextmanager
