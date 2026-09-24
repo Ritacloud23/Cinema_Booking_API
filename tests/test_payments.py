@@ -4,7 +4,7 @@ import pytest
 
 from app.cache.redis import redis_client
 from app.core.config import settings
-from app.core.security import hash_password
+from app.core.security import create_access_token, hash_password
 from app.db.models.booking import Booking
 from app.db.models.film import Film
 from app.db.models.payment import Payment
@@ -261,3 +261,24 @@ def test_successful_payment_updates_live_board(session):
 
     assert board["booked_seats"] == 1
     assert board["held_seats"] == 0
+
+def test_api_payment_fails_for_non_pending_booking(
+    client,
+    session,
+):
+    user, booking = create_booking_setup(session)
+
+    booking.status = "confirmed"
+    session.add(booking)
+    session.commit()
+
+    response = client.post(
+        f"/api/v1/payments?booking_id={booking.id}",
+        headers={
+            "Authorization": "Bearer "
+            + create_access_token(user.id, user.role)
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Booking is not pending"

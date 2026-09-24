@@ -133,4 +133,31 @@ def test_rate_limit_is_separate_for_different_users(client, session):
     assert response.status_code == 200
 
     redis_client.delete(key_one)
-    redis_client.delete(key_two)    
+    redis_client.delete(key_two)
+
+
+def test_cannot_register_with_existing_email(client):
+    first_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "duplicate@example.com",
+            "password": "password123",
+            "full_name": "First User",
+        },
+    )
+
+    assert first_response.status_code == 201
+
+    second_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "duplicate@example.com",
+            "password": "password123",
+            "full_name": "Second User",
+        },
+    )
+
+    assert second_response.status_code == 409
+    assert second_response.json()["detail"] == "Email already registered"   
+
+
